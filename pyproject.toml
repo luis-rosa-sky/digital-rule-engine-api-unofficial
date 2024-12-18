@@ -1,0 +1,24 @@
+[project]
+name = "digital-rule-engine-api"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "asyncio>=3.4.3",
+    "black>=24.10.0",
+    "durable-rules>=2.0.28",
+    "google-cloud-bigquery>=3.27.0",
+    "isort>=5.13.2",
+    "psycopg2-binary>=2.9.10",
+    "pydantic>=2.10.3",
+    "pylint>=3.3.2",
+    "pytest-bdd>=8.1.0",
+    "pytest>=8.3.4",
+    "requests>=2.32.3",
+    "sqlalchemy>=2.0.36",
+    "typing>=3.10.0.0",
+    "flake8>=7.1.1",
+    "mypy>=1.13.0",
+    "alembic>=1.14.0",
+]
