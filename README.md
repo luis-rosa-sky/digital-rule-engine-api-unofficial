@@ -55,7 +55,7 @@ The `Digital Rule Engine API` is a scheduled rules engine designed to evaluate a
     ```
 3. Run the application:
     ```bash
-    python -m your_main_module
+    uvicorn src.app.main:app --reload
     ```
 
 ---
@@ -94,15 +94,15 @@ Maintain code quality with the following tools:
     ```
 - **Pylint**: Perform linting
     ```bash
-    pylint your_project_folder
+    pylint ./digital-rule-engine-api-unofficial
     ```
 - **MyPy**: Ensure type hint correctness
     ```bash
-    mypy your_project_folder
+    mypy ./digital-rule-engine-api-unofficial
     ```
 - **Flake8**: Scan for additional coding standard violations
     ```bash
-    flake8 your_project_folder
+    flake8 ./digital-rule-engine-api-unofficial
     ```
 
 ---
