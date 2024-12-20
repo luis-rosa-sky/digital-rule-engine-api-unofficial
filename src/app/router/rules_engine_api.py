@@ -1,31 +1,59 @@
+"""Rules engine api module"""
+
+# Standard library imports
+import time
+
 # Third-party library imports
 # pylint: disable=import-error,broad-exception-caught
 from multiprocessing import Process
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from src.shared_utils.utils import get_logger
 from src.shared_utils.response_handler import ResponseHandler
 from src.shared_utils.local_db import LocalDatabase
 from ..utils.rules_runner import RulesRunner
+from ..utils.rules_performance_metrics  import RulesPerformanceMetrics
 
 # Configure logging
 logger = get_logger("rule-engine-api")
 response_handler = ResponseHandler()
 router = APIRouter()
 
-@router.get("/exc-rule-engine")
-def exec_rule_engine():
+# Instantiate the RulesPerformanceMetrics class
+rules_performance_metrics = RulesPerformanceMetrics()
+
+@router.get("/exec-rule-engine")
+def exec_rule_engine(request: Request):
     """
     Execute rule engine endpoint. Logs a message and returns a success response.
     """
     try:
-        # Fetch data and rules synchronously
+        # Record execution details
+        execution_details = {
+            "endpoint": request.url.path,  # Get the endpoint path dynamically
+            "request_time": time.time(),
+        }
+        rules_performance_metrics.record_execution_details(execution_details)
+
+        # Start timing for data fetching
+        start_time = rules_performance_metrics.start_timer()
         data = _fetch_data_from_local_database()
+        rules_performance_metrics.stop_timer(start_time, "data_fetch_time")
+
+        # Start timing for rules fetching
+        start_time = rules_performance_metrics.start_timer()
         rules = _fetch_rules_from_local_database()
+        rules_performance_metrics.stop_timer(start_time, "rules_fetch_time")
 
         # Run the rules engine in a separate process
         process = Process(target=_run_rules_engine_sync, args=(data, rules))
         process.start()
         process.join()
+
+        # Record CPU and memory usage
+        rules_performance_metrics.record_cpu_and_memory_usage()
+
+        # Record system-level metrics
+        rules_performance_metrics.record_system_metrics()
 
         message = "Rules evaluation completed successfully."
         logger.info(message)
@@ -47,6 +75,13 @@ def exec_rule_engine():
         message = "Rules evaluation process finished, whether successful or not."
         logger.info(message)
         return response_handler.success(message=message)
+
+@router.get("/exec-rule-performance-metrics")
+def get_rule_performance_metrics():
+    """
+    Retrieve performance metrics for the rule engine execution.
+    """
+    return rules_performance_metrics.get_performance_metrics()
 
 def _fetch_data_from_local_database():
     """
@@ -97,8 +132,10 @@ def _run_rules_engine_sync(data, rules):
     Synchronous wrapper for running the rules engine in a separate process.
     """
     try:
+        start_time = rules_performance_metrics.start_timer()
         rules_runner = RulesRunner()
         rules_runner.run(data, rules)
+        rules_performance_metrics.stop_timer(start_time, "rules_eval_time")
     except Exception as e:
         logger.error(f"Error running rules engine: {e}")
         raise

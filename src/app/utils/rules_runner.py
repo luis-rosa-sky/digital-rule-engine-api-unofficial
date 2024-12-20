@@ -2,13 +2,13 @@
 
 # Standard library imports
 import json
-from multiprocessing import Pool
-from typing import List, Dict, Any
 
 # Third-party library imports
 from src.shared_utils.utils import get_logger
 from durable.lang import ruleset, when_all, when_any, m, post
 from functools import reduce
+from multiprocessing import Pool
+from typing import List, Dict, Any
 
 # Configure logging
 logger = get_logger("rules-runner")
