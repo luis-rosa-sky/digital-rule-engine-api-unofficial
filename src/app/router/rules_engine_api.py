@@ -1,17 +1,13 @@
-"""Rules engine api module"""
-
 # Standard library imports
 import time
 
 # Third-party library imports
-# pylint: disable=import-error,broad-exception-caught
-from multiprocessing import Process
 from fastapi import APIRouter, Request
 from src.shared_utils.utils import get_logger
 from src.shared_utils.response_handler import ResponseHandler
 from src.shared_utils.local_db import LocalDatabase
 from ..utils.rules_runner import RulesRunner
-from ..utils.rules_performance_metrics  import RulesPerformanceMetrics
+from ..utils.rules_performance_metrics import RulesPerformanceMetrics
 
 # Configure logging
 logger = get_logger("rule-engine-api")
@@ -22,7 +18,7 @@ router = APIRouter()
 rules_performance_metrics = RulesPerformanceMetrics()
 
 @router.get("/exec-rule-engine")
-def exec_rule_engine(request: Request):
+async def exec_rule_engine(request: Request):
     """
     Execute rule engine endpoint. Logs a message and returns a success response.
     """
@@ -36,18 +32,16 @@ def exec_rule_engine(request: Request):
 
         # Start timing for data fetching
         start_time = rules_performance_metrics.start_timer()
-        data = _fetch_data_from_local_database()
+        data = await _fetch_data_from_local_database()
         rules_performance_metrics.stop_timer(start_time, "data_fetch_time")
 
         # Start timing for rules fetching
         start_time = rules_performance_metrics.start_timer()
-        rules = _fetch_rules_from_local_database()
+        rules = await _fetch_rules_from_local_database()
         rules_performance_metrics.stop_timer(start_time, "rules_fetch_time")
 
-        # Run the rules engine in a separate process
-        process = Process(target=_run_rules_engine_sync, args=(data, rules))
-        process.start()
-        process.join()
+        # Run the rules engine asynchronously
+        await _run_rules_engine_async(data, rules)
 
         # Record CPU and memory usage
         rules_performance_metrics.record_cpu_and_memory_usage()
@@ -83,21 +77,21 @@ def get_rule_performance_metrics():
     """
     return rules_performance_metrics.get_performance_metrics()
 
-def _fetch_data_from_local_database():
+async def _fetch_data_from_local_database():
     """
     Fetch campaign and line item data from the local database.
     """
     try:
         local_database = LocalDatabase()
         campaigns = local_database.fetch_data('campaign', 
-                                            ['id', 'name', 'type', 'start_date', 'end_date'])
+                                                        ['id', 'name', 'type', 'start_date', 'end_date'])
         
         data = []
         for campaign in campaigns:
             condition = 'campaign_id=' + str(campaign['id'])
             line_items = local_database.fetch_data('line_item', 
-                                                ['id', 'order_id', 'type', 'impressions_delivered', 'impression_goal', 'priority_level', 'delivery_type', 'pacing_osi'],
-                                                condition)
+                                                            ['id', 'order_id', 'type', 'impressions_delivered', 'impression_goal', 'priority_level', 'delivery_type', 'pacing_osi'],
+                                                            condition)
             
             # Combine campaign data with line_items data
             for line_item in line_items:
@@ -114,7 +108,7 @@ def _fetch_data_from_local_database():
         logger.error(f"Error fetching data from local database: {e}")
         raise
 
-def _fetch_rules_from_local_database():
+async def _fetch_rules_from_local_database():
     """
     Fetch rule definitions from the local database.
     """
@@ -126,15 +120,14 @@ def _fetch_rules_from_local_database():
         logger.error(f"Error fetching rules from local database: {e}")
         raise
 
-# Synchronous wrapper for the rules engine
-def _run_rules_engine_sync(data, rules):
+async def _run_rules_engine_async(data, rules):
     """
-    Synchronous wrapper for running the rules engine in a separate process.
+    Asynchronous wrapper for running the rules engine.
     """
     try:
         start_time = rules_performance_metrics.start_timer()
         rules_runner = RulesRunner()
-        rules_runner.run(data, rules)
+        await rules_runner.run(data, rules)
         rules_performance_metrics.stop_timer(start_time, "rules_eval_time")
     except Exception as e:
         logger.error(f"Error running rules engine: {e}")

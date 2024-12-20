@@ -1,13 +1,11 @@
-"""Durable rules runner module using multiprocessing"""
-
 # Standard library imports
 import json
+import asyncio
 
 # Third-party library imports
 from src.shared_utils.utils import get_logger
 from durable.lang import ruleset, when_all, when_any, m, post
 from functools import reduce
-from multiprocessing import Pool
 from typing import List, Dict, Any
 
 # Configure logging
@@ -20,20 +18,17 @@ class RulesRunner:
         """Initialize the RulesRunner."""
         pass
 
-    def run(self, data: List[Dict[str, Any]], rules: List[Dict[str, Any]]):
+    async def run(self, data: List[Dict[str, Any]], rules: List[Dict[str, Any]]):
         """
-        Run the rules evaluation process using multiprocessing.
+        Run the rules evaluation process asynchronously.
 
         Args:
             data: List of records to evaluate.
             rules: List of rules to apply.
         """
-        # Create a pool of worker processes
-        with Pool() as pool:
-            # Map the rules evaluation to the worker processes
-            pool.starmap(self._process_rule, [(rule, data) for rule in rules])
+        await asyncio.gather(*[asyncio.create_task(self._process_rule_async(rule, data)) for rule in rules])
 
-    def _process_rule(self, rule: Dict[str, Any], data: List[Dict[str, Any]]):
+    async def _process_rule_async(self, rule: Dict[str, Any], data: List[Dict[str, Any]]):
         """
         Process a single rule and evaluate it against the data.
 
@@ -44,12 +39,12 @@ class RulesRunner:
         rule_data = rule['rule']
         
         logger.info("Ruleset defined and facts fetched.")
-        self._define_rule(rule_data)
+        await self._define_rule(rule_data)
 
         logger.info(f"Starting rules evaluation for rule: {rule_data['name']}")
-        self._evaluate_rule(rule_data, data)
+        await self._evaluate_rule_async(rule_data, data)
 
-    def _define_rule(self, rule: Dict[str, Any]):
+    async def _define_rule(self, rule: Dict[str, Any]):
         """
         Define a rule and process facts.
 
@@ -84,7 +79,7 @@ class RulesRunner:
             def default_handler(c):
                 logger.info(f"Default rule matched: Campaign {c.m.campaign_id} does not match any specific rules.")
 
-    def _evaluate_rule(self, rule: Dict[str, Any], data: List[Dict[str, Any]]):
+    async def _evaluate_rule_async(self, rule: Dict[str, Any], data: List[Dict[str, Any]]):
         """
         Evaluate rules for each record and post the result.
 
@@ -97,7 +92,7 @@ class RulesRunner:
             logger.info(f"Evaluating Rule ({ruleset_name}) => {record}")
 
             # Post the record for evaluation
-            self._execute_post(ruleset_name, record)
+            await self._execute_post_async(ruleset_name, record)
 
     def _build_dynamic_condition(self, conditions: List[Dict[str, Any]], is_all: bool = True) -> Any:
         """
@@ -202,7 +197,7 @@ class RulesRunner:
         except Exception as e:
             logger.error(f"Error updating field {action['target_field']}: {e}")
 
-    def _execute_post(self, ruleset_name: str, record: Dict[str, Any]):
+    async def _execute_post_async(self, ruleset_name: str, record: Dict[str, Any]):
         """
         Post the record for evaluation.
 
