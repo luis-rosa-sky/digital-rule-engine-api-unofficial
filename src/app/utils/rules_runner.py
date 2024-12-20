@@ -3,12 +3,12 @@
 # Standard library imports
 import json
 import asyncio
+from typing import List, Dict, Any
 
 # Third-party library imports
 from src.shared_utils.utils import get_logger
 from durable.lang import ruleset, when_all, when_any, m, post
 from functools import reduce
-from typing import List, Dict, Any
 
 # Configure logging
 logger = get_logger("rules-runner")
@@ -20,99 +20,98 @@ class RulesRunner:
         """Initialize the RulesRunner."""
         pass
 
-    async def run(self, data, rules):
- 
-        for record in data:
-
-            print("=> " + str(record))
-            # Define ruleset for campaigns
-            for rule in rules['rules']:
-                
-                logger.info("Ruleset defined and facts fetched.")
-                await self._define_rule(rule)
-        
-                # Evaluate the rules for campaigns and insert/update local database
-                logger.info(f"Starting rules evaluation from data")
-                await self._evaluate_rule(rule, record)
- 
-    async def _define_rule(self, rule: Dict[str, Any]) -> List[Dict[str, Any]]:
-        """Define rules and process facts.
+    async def run(self, data: List[Dict[str, Any]], rules: List[Dict[str, Any]]):
+        """
+        Run the rules evaluation process.
 
         Args:
-            rules_config (Dict[str, Any]): Configuration containing rules.
+            data: List of records to evaluate.
+            rules: List of rules to apply.
+        """
+        for rule in rules:
+            rule_data = rule['rule']
+            logger.info("Ruleset defined and facts fetched.")
+            await self._define_rule(rule_data)
+            logger.info(f"Starting rules evaluation for rule: {rule_data['name']}")
+            await self._evaluate_rule(rule_data, data)
+        
+        await asyncio.sleep(1)
 
-        Returns:
-            List[Dict[str, Any]]: Processed facts after applying rules.
+    async def _define_rule(self, rule: Dict[str, Any]):
+        """
+        Define a rule and process facts.
+
+        Args:
+            rule: The rule to define.
         """
         ruleset_name = rule['name']
         condition = rule['condition']
         actions = rule['actions']
 
+        logger.info(f"Defining Rule ({ruleset_name}, {condition}) => {actions}")
+
         with ruleset(ruleset_name):
             logger.info(f"Building conditions for rule: {ruleset_name}")
+
+            # Handle 'all' conditions
             if 'all' in condition:
                 @when_all(self._build_dynamic_condition(condition['all']))
                 def rule_handler_all(c):
-                    logger.info(f"Executing rule: {rule['name']}")
-                    # Use asyncio.create_task to run the async function
-                    asyncio.create_task(self._execute_actions(c, actions))
+                    logger.info(f"Executing rule: {ruleset_name}")
+                    self._execute_actions(c, actions)
 
+            # Handle 'any' conditions
             elif 'any' in condition:
                 @when_any(self._build_dynamic_condition(condition['any'], is_all=False))
                 def rule_handler_any(c):
-                    logger.info(f"Executing rule: {rule['name']}")
-                    asyncio.create_task(self._execute_actions(c, actions))
+                    logger.info(f"Executing rule: {ruleset_name}")
+                    self._execute_actions(c, actions)
 
-    async def _evaluate_rule(self, ruleset_name, record):
-        """Evaluate rules for each record and post the result."""
-            
-        for line_item in record["line_items"]:
-            # Find the corresponding campaign by ID
-            campaign = next(
-                (camp for camp in record["campaigns"] if camp["id"] == line_item["campaign_id"]), {}
-            )
+            # Default rule: Handle any message that doesn't match other rules
+            @when_all(+m.campaign_id)
+            def default_handler(c):
+                logger.info(f"Default rule matched: Campaign {c.m.campaign_id} does not match any specific rules.")
 
-            # Combine line item and campaign data into a single record
-            record = {
-                "line_item" : {
-                    "performance" : line_item["performance"],
-                    "remaining_inventory" : line_item["remaining_inventory"],
-                    "allocated_impressions" : line_item["allocated_impressions"],
-                    "status" : line_item["status"],
-                    "inventory_level" : line_item["inventory_level"]
-                },
-                "campaign": {
-                    "id": campaign["id"],
-                    "priority" : campaign["priority"]
-                }
-            }
-       
-        # Ensure the record can be serialized into JSON
-        await self._execute_post(ruleset_name, record)
-
-    def _build_dynamic_condition(self, conditions: List[Dict[str, Any]], is_all: bool = True) -> Any:
-        """Build dynamic condition expressions.
+    async def _evaluate_rule(self, rule: Dict[str, Any], data: List[Dict[str, Any]]):
+        """
+        Evaluate rules for each record and post the result.
 
         Args:
-            conditions (List[Dict[str, Any]]): List of conditions to be evaluated.
-            is_all (bool): Whether to use 'all' or 'any' logic.
+            rule: The rule to evaluate.
+            data: The data to evaluate the rule against.
+        """
+        ruleset_name = rule['name']
+        for record in data:
+            logger.info(f"Evaluating Rule ({ruleset_name}) => {record}")
+
+            # Post the record for evaluation
+            await self._execute_post(ruleset_name, record)
+
+    def _build_dynamic_condition(self, conditions: List[Dict[str, Any]], is_all: bool = True) -> Any:
+        """
+        Build dynamic condition expressions.
+
+        Args:
+            conditions: List of conditions to be evaluated.
+            is_all: Whether to use 'all' or 'any' logic.
 
         Returns:
-            Any: Combined condition expression.
+            Combined condition expression.
         """
         expressions = [self._create_expression(cond['field'].split('.'), cond['operator'], cond['value']) for cond in conditions]
         return reduce(lambda x, y: x & y if is_all else x | y, expressions)
 
     def _create_expression(self, field_path: List[str], operator: str, value: Any) -> Any:
-        """Create a condition expression dynamically.
+        """
+        Create a condition expression dynamically.
 
         Args:
-            field_path (List[str]): Path to the field in the fact.
-            operator (str): Operator to use in the condition.
-            value (Any): Value to compare against.
+            field_path: Path to the field in the fact.
+            operator: Operator to use in the condition.
+            value: Value to compare against.
 
         Returns:
-            Any: Constructed condition expression.
+            Constructed condition expression.
         """
         expr = m
         for key in field_path:
@@ -134,13 +133,13 @@ class RulesRunner:
             raise ValueError(f"Unsupported operator: {operator}")
 
     async def _execute_actions(self, c, actions: List[Dict[str, Any]]) -> None:
-        """Execute actions based on the rule.
+        """
+        Execute actions based on the rule.
 
         Args:
             c: Context object.
-            actions (List[Dict[str, Any]]): List of actions to be executed.
+            actions: List of actions to be executed.
         """
-        await asyncio.sleep(1)  # Simulate an asynchronous delay
         for action in actions:
             try:
                 if action['type'] == 'update':
@@ -155,15 +154,16 @@ class RulesRunner:
                 logger.error(f"Error executing action {action['type']}: {e}")
 
     def _perform_update(self, c, action: Dict[str, Any]) -> None:
-        """Perform update action.
+        """
+        Perform update action.
 
         Args:
             c: Context object.
-            action (Dict[str, Any]): Action configuration.
+            action: Action configuration.
         """
         try:
             logger.info(f"Updating: {action['target_field']} with expression: {action['expression']}")
-            
+
             # Ensure the context object is not None
             if c.m is None:
                 raise ValueError("Context object is None")
@@ -190,21 +190,18 @@ class RulesRunner:
         except Exception as e:
             logger.error(f"Error updating field {action['target_field']}: {e}")
 
-    async def _execute_post(self, ruleset_name, message):
+    async def _execute_post(self, ruleset_name: str, record: Dict[str, Any]):
+        """
+        Post the record for evaluation.
+
+        Args:
+            ruleset_name: Name of the ruleset.
+            record: The record to post.
+        """
         try:
-            # Debugging: Check types before calling post
-            if callable(ruleset_name):
-                raise TypeError("ruleset_name is a function, not a string.")
-            if callable(message):
-                raise TypeError("record is a function, not a dictionary.")
-            
             # Validate JSON serializability
-            try:
-                json.dumps(message)
-            except TypeError as te:
-                raise ValueError(f"Record is not JSON serializable: {te}")
-                        
-            # Call the post function (assuming it's defined elsewhere)
-            post(ruleset_name, message)
+            json.dumps(record)
+
+            post(ruleset_name, record)
         except Exception as e:
-            logger.error("Error occurred: %s", e, exc_info=True)
+            logger.error(f"Error posting record to ruleset {ruleset_name}: {e}")

@@ -1,149 +1,146 @@
 # Digital Rule Engine API (Unofficial)
 
-## Overview
+## 1. Overview
 The `Digital Rule Engine API` is a scheduled rules engine designed to evaluate and process rules, including campaign flags and other criteria, stored in a local PostgreSQL database. This data is sourced from ADL GAM Datastores and local Data Ponds.
 
----
+## 2. Requirements and Configurations
+### Requirements
 
-## Features
-- **Rule Evaluation**: Scheduled evaluation of business rules to manage campaign flags and other conditions.
-- **Data Synchronization**: Fetches data from ADL GAM Datastores and integrates with local Data Ponds.
-- **Flexible Configuration**: Dynamically configurable using `Pydantic Settings`.
-- **Database Management**: Uses SQLAlchemy for ORM and Alembic for database migrations.
-- **Robust Testing**: Comprehensive testing suite covering unit, BDD, and integration tests.
+###### Python
 
----
+1. Download and Install [Python](https://www.python.org/downloads/)
 
-## Project Dependencies and Tools
+###### PostgreSQL
+1. Download and Install [PostgreSQL](https://www.postgresql.org/download/)
 
-### Management Dependencies
-- **UV**: Handles dependency management for the project, ensuring consistent environments and compatibility.
+###### IDE
+1. Download and install [PyCharm Community Edition](https://www.jetbrains.com/pycharm/download/?section=windows) 
 
-### Libraries
-- **Formatting**: `Ruff`
-- **Linting**: `Pylint`
-- **Dependency Management**: `UV`
-- **Dynamic Configurations**: `Pydantic Settings`
-- **Type Hinting**: `MyPy`
-- **Unit Testing**: `Pytest`
-- **BDD Testing**: `pytest_bdd`
-- **Integration Testing**: `Pytest` and `async_asgi_testclient`
-- **Code Scanning**: `Flake8`, `MyPy`, and security-focused scanning tools.
-- **Logging**: Built-in `logging` module.
-- **Data Handling**: `Pydantic`
-- **Database**: `SQLAlchemy`
-- **Database Migration**: `Alembic`
+###### IDE Plugins
+To install a plugin in IntelliJ IDEA or PyCharm go to Settings > Plugins > Marketplace > Search for the plugin name and click Install.
+1. Add the plugin [Python Community Edition](https://plugins.jetbrains.com/plugin/7322-python-community-edition)
+2. Add the plugin [Pylint](https://plugins.jetbrains.com/plugin/11084-pylint) (Optional, if you want Pylint highlighting)
 
----
+___
+### Configurations
+###### Pylint Plugin
+1. Add the pylint package (only to you venv, don't add it to the project's dependencies)
+2. Navigate to Settings > Pylint. On 'Path to Pylint executable' enter the path to pylint.exe which can be found at your ./venv/Scripts/pylint.exe
+missing python interpreter config and docker config
 
-## Installation
+###### PostGres
+1. Enter the 'pgAdmin 4' app and setup a new dummy database for testing purposes. 
+___
 
-### Prerequisites
-1. Python 3.8+
-2. Virtual environment support (optional but recommended)
-3. [UV](https://uv-mgmt.readthedocs.io/) installed for dependency management.
+### Python Configurations
 
-### Steps
-1. Clone the repository:
-    ```bash
-    git clone https://github.com/yourusername/digital-rule-engine-api-unofficial.git
-    cd digital-rule-engine-api-unofficial
-    ```
-2. Set up your environment:
-    ```bash
-    uv install
-    ```
-3. Run the application:
-    ```bash
-    uvicorn src.app.main:app --reload
-    ```
+###### Virtual Environments
 
----
+Create at Python virtual environment at the root of the project, from where you will work on this project.
 
-## Configuration
-Dynamic configurations are managed via `Pydantic Settings`. Environment-specific configurations can be loaded from `.env` files or other sources.
-
----
-
-## Testing
-This project includes a robust testing suite:
-
-1. **Unit Tests**:
-    ```bash
-    pytest tests/unit
-    ```
-
-2. **BDD Testing**:
-    ```bash
-    pytest tests/bdd
-    ```
-
-3. **Integration Tests**:
-    ```bash
-    pytest tests/integration
-    ```
-
----
-
-## Code Quality
-Maintain code quality with the following tools:
-
-- **Ruff**: Run formatting checks
-    ```bash
-    ruff .
-    ```
-- **Pylint**: Perform linting
-    ```bash
-    pylint ./digital-rule-engine-api-unofficial
-    ```
-- **MyPy**: Ensure type hint correctness
-    ```bash
-    mypy ./digital-rule-engine-api-unofficial
-    ```
-- **Flake8**: Scan for additional coding standard violations
-    ```bash
-    flake8 ./digital-rule-engine-api-unofficial
-    ```
-
----
-
-## Database Management
-
-- **ORM**: `SQLAlchemy`
-- **Migrations**: `Alembic`
-
-### Run Migrations
 ```bash
-alembic upgrade head
+py -m venv .venv
+```
+To check if you are working in the virtual environment, look at the terminal prompt. If there is a '(.venv)' prefix before the command prompt you are good to go. If it's not the case, run the following command:
+
+[Windows]
+```bash
+.venv\Scripts\activate
+```
+[macOS/Linux]
+```bash
+source .venv/bin/activate
 ```
 
-### Create a New Migration
+###### Python Dependencies
+1. Install the uv tool in the virtual environment by running the following command:
 ```bash
-alembic revision --autogenerate -m "Migration message"
+pip install uv
 ```
+2. Install the necessary dependencies for the project in the virtual environment by running the following command:
+```bash
+uv sync
+```
+3. If you need to add a dependency to the project, run the following command
+```bash
+uv add {package} --group {group}
+```
+___
+## 3. Run, Debug and Test
 
----
+###### Run a FastAPI app
+To run the project locally, open a terminal at the root of the project, check if you are using the .venv, and run the following command:
+```bash
+uvicorn src.{app_folder}.main:app
+```
+###### Debug
+The --reload flag will make the server reload whenever the code is modified, it serves only for development and debugging purposes.
+```bash
+uvicorn src.{app_folder}.main:app --reload
+```
+To print debug statements in runtime you must call the uvicorn logger.
+```python
+import logging
 
-## Logging
-Logging is managed using Python's built-in `logging` module. Customize logging configurations in the settings file as needed.
+logger = logging.getLogger('uvicorn.error')
+logger.debug('This is a debug message')
 
----
+```
+###### Test
+To run all tests, run the following command:
+```bash
+pytest
+```
+To run a specific set of tests, run the following command:
+```bash
+pytest {target file or folder}
+```
+___
+## 4. Code formatting and analysis
 
-## Security
-Ensure secure code practices with:
-- Dependency vulnerability scanning via `UV`.
-- Static analysis using `MyPy` and `Flake8`.
-- Additional security-focused tools as needed.
+To format files using Black run the following command:
+```bash
+black {target file or folder}
+```
+To format import statements using Isort run the following command:
+```bash
+isort --profile black {target file or folder}
+```
+In case you didn't install the Pylint plugin or just want a concise way of viewing Pylint warnings, run the following command:
+```bash
+pylint {target file or folder}
+```
+___
+## 5. Project Guidelines
 
----
+Please read all the [Guidelines]()
+###### Project Structure
 
-## Contribution Guidelines
-1. Fork the repository.
-2. Create a new branch for your feature/bugfix.
-3. Commit and push your changes.
-4. Open a pull request.
+We use a modular approach to structure the project files, as our single repository hosts multiple FastAPI apps that share a significant amount of code. The source folder is organized into subfolders for each app and one for shared code.
 
----
+Within each app folder, we include app-specific utilities and definitions. Each app’s components are further separated into their own folders, reinforcing the modular structure. In the example below, in the first app, there are separate folders for a GAM client, a PIO client, an auth client, and a router. Each component can also include its own utilities and definitions if needed
 
-## License
-This project is licensed under the MIT License. See `LICENSE` file for details.
+
+    Root/
+    ├── src/                   #SourceFiles
+    │   ├── app/
+    │   │   ├── router/       
+    │   │   │   ├── router.py  
+    │   │   │   ├── schemas.py #module-specific schemas
+    │   │   │   └── models.py  #module-specific models
+    │   │   ├── utils/         #app-specific utils
+    │   │   └── main.py
+    │   └── shared_utils/      #utils shared between all apps
+    │       ├── database.py    #database connection
+    │       ├── create_app.py
+    │       ├── models.py      #global models
+    │       └── schemas.py     #global schemas
+    ├── tests/                 
+    │   ├── app/        #app tests
+    │   │   ├── unit_tests/
+    │   │   ├── bdd_tests/
+    │   │   └── integration_tests/
+    ├── Makefile               #Makefile for three musketeers
+    ├── pyproject.toml         #Poetry dependencies  
+    └── README.md
+___

@@ -15,21 +15,21 @@ class LineItem:
     skippable_ad: bool = False
     impressions_delivered: int = 0
     impression_goal: Optional[int] = None
-    start_date: date
-    end_date: date
-    priority_level: int
-    delivery_type: str
-    bookies: List[str]
+    start_date: date = None
+    end_date: date = None
+    priority_level: int = None
+    delivery_type: str = None
+    bookies: List[str] = None
     cpm: Optional[float] = None
     pacing_osi: Optional[float] = None
     targetting_attributes: Optional[Dict] = None
     creative_dimensions: Optional[Dict] = None
     vast_error_codes: Optional[Dict] = None
     ad_unit_mapping: Optional[Dict] = None
-    assets_assigned: List[str]
-    platform: str
+    assets_assigned: List[str] = None
+    platform: str = None
     fill_rate: Optional[float] = None
-    campaign_id: int
+    campaign_id: int = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 
