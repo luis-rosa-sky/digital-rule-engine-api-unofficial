@@ -1,38 +1,32 @@
-"""Runner engine api module"""
-
 # Third-party library imports
 # pylint: disable=import-error,broad-exception-caught
 from multiprocessing import Process
 from fastapi import APIRouter
-import asyncio
 from src.shared_utils.utils import get_logger
 from src.shared_utils.response_handler import ResponseHandler
 from src.shared_utils.local_db import LocalDatabase
 from ..utils.rules_runner import RulesRunner
- 
+
 # Configure logging
 logger = get_logger("rule-engine-api")
 response_handler = ResponseHandler()
 router = APIRouter()
 
 @router.get("/exc-rule-engine")
-async def exec_rule_engine():
+def exec_rule_engine():
     """
     Execute rule engine endpoint. Logs a message and returns a success response.
     """
     try:
-        # Fetch data and rules concurrently
-        data_task = asyncio.create_task(_fetch_data_from_local_database())
-        rules_task = asyncio.create_task(_fetch_rules_from_local_database())
-
-        # Wait for both tasks to complete
-        data, rules = await asyncio.gather(data_task, rules_task)
+        # Fetch data and rules synchronously
+        data = _fetch_data_from_local_database()
+        rules = _fetch_rules_from_local_database()
 
         # Run the rules engine in a separate process
         process = Process(target=_run_rules_engine_sync, args=(data, rules))
         process.start()
         process.join()
-        
+
         message = "Rules evaluation completed successfully."
         logger.info(message)
         return message
@@ -52,9 +46,9 @@ async def exec_rule_engine():
     finally:
         message = "Rules evaluation process finished, whether successful or not."
         logger.info(message)
-        return response_handler.success(message=message)  
+        return response_handler.success(message=message)
 
-async def _fetch_data_from_local_database():
+def _fetch_data_from_local_database():
     """
     Fetch campaign and line item data from the local database.
     """
@@ -85,7 +79,7 @@ async def _fetch_data_from_local_database():
         logger.error(f"Error fetching data from local database: {e}")
         raise
 
-async def _fetch_rules_from_local_database():
+def _fetch_rules_from_local_database():
     """
     Fetch rule definitions from the local database.
     """
@@ -104,8 +98,7 @@ def _run_rules_engine_sync(data, rules):
     """
     try:
         rules_runner = RulesRunner()
-        # Use asyncio.run to execute the async function in a synchronous context
-        asyncio.run(rules_runner.run(data, rules))
+        rules_runner.run(data, rules)
     except Exception as e:
         logger.error(f"Error running rules engine: {e}")
         raise
